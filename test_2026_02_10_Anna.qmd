@@ -1,0 +1,369 @@
+---
+title: "Simulations"
+author: "Felix Ho"
+date: "2026-02-07"
+format: html
+embed-resources: true
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+library(data.table)
+library(here)
+```
+
+```{r}
+collapse_levels <- function(props, k) {
+  even <- 1/k
+  midpoints <- props[1]/2
+  for (i in 2:length(props)) {
+    midpoints <- c(midpoints, props[i]/2 + cumsum(props)[i-1])
+  }
+  even_breaks <- seq(0, 1, length.out=k+2)[2:(k+1)]
+  
+  
+  best_sse <- 1e6
+  best_clusters <- NULL
+  
+  # Run kmeans algorithm 1000 times due to its variability
+  for (i in 1:1000) {
+    (clusters <- kmeans(midpoints, centers=k))
+    
+    # Minimize difference between chunk proportion and 1/k
+    sse <- 0
+    for (j in 1:k) {
+      (even-sum(props[clusters$cluster==j]))^2
+      sse <- sse +(even-sum(props[clusters$cluster==j]))^2
+    }
+    if (sse < best_sse) {
+      best_sse <- sse
+      best_clusters <- clusters$cluster
+    }
+  }
+  
+  # Reorder chunk labels since kmeans randomly assigns centers
+  split_best_clusters<- split(best_clusters, rleid(best_clusters))
+  final_clusters <- NULL
+  for (i in 1:k) {
+    final_clusters <- c(final_clusters, rep(i, length(split_best_clusters[[i]])))
+  }
+  return(final_clusters)
+}
+```
+
+```{r}
+applyOR <- function(baseline, OR) {
+  cumulative <- cumsum(baseline)
+  odds <- cumulative/(1-cumulative)
+  shifted_odds <- odds * 1/OR
+  shifted_cumulative <- shifted_odds/(1+shifted_odds)
+  shifted_cumulative[length(shifted_cumulative)] <- 
+    ifelse(is.nan(tail(shifted_cumulative,1)), 1, tail(shifted_cumulative,1))
+  shifted_probs <- c(shifted_cumulative[1], diff(shifted_cumulative))
+  return(round(shifted_probs,3))
+}
+```
+
+```{r}
+set.seed(234)
+
+n <- 10000
+mean_target <- 5.5 #This is the mean of the log-normal distribution.
+sd_target <- 2.6 #This is the SD of the log-normal distribution.
+p_neg1 <- 0.322 #This is the negative one inflation rate (normal mortality rate in our patient population).
+upper_cap <- 28
+
+# Convert mean/SD to log-normal parameters (sdlog and meanlog are on the log scale, they are the parameters of the log of the log-normal distribution; sdlog and meanlog are parameters of a normal distribution)
+sdlog <- sqrt(log(1 + (sd_target^2 / mean_target^2)))
+meanlog <- log(mean_target^2/sqrt(sd_target^2 + mean_target^2))
+
+# Step 1: -1 inflation indicator
+is_neg1 <- runif(n) < p_neg1
+
+# Step 2: create discrete categories of days on vasopressors based on the right skewed or positively skewed log-normal distribution (e.g., if someone is between 0 and 1 day on vasopressor in the log-normal distribution, they will be assigned to 1 day and if someone is between 1 and 2 days on vasopressor in the log-normal distribution, they will be assigned to 2 days)
+x <- ceiling(rlnorm(n, meanlog = meanlog, sdlog = sdlog))
+
+# Step 3: truncate at 28
+x <- pmin(x, upper_cap)
+
+# Step 4: flip the distribution so that the x-axis is vasopressor-free days (this new distribution will be left skewed or negatively skewed). The reason why we start by creating a log-normal distribution for days on vasopressors is because we want that distribution to be right skewed or positively skewed. That makes sense clinically because most patients do not spend a lot of days on vasopressors. After creating that distribution, we flip it by subtracting it from 28 to get the distribution for vasopressor-free days. Now we have quite a few people who have a lot of vasopressor-free days, which makes sense clinically.
+x <- 28 - x
+
+# Step 5: apply -1 inflation (this step is the last, otherwise the -1 bar on the histogram will be flipped to the 29 bar when evaluating 28 - x)
+x[is_neg1] <- -1
+
+hist(x, breaks = 30)
+```
+
+```{r}
+table(x)
+```
+
+```{r}
+k <- 10 # INLA accepts 10 levels only
+VFDs <- c('-1'=3221, '0'=1, '2'=1, '3'=2, '5'=1, '6'=2, '8'=1,
+          '9'=8, '10'=14,'11'=10, '12'=10, '13'=25, '14'=41, '15'=62,	'16'=92,
+          '17'=132, '18'=236, '19'=342, '20'=563, '21'=746, '22'=1094, '23'=1299,	'24'=1215,
+          '25'=748, '26'=133, '27'=1)
+VFD_props <- VFDs/sum(VFDs)
+VFD_adj_levels <- collapse_levels(VFD_props, k)
+
+VFD_adj_N <- NULL
+for (i in 1:k) {
+  VFD_adj_N <- c(VFD_adj_N, sum(VFDs[VFD_adj_levels==i]))
+}
+
+SEP <- data.frame(
+  VFDs = 1:10,
+  N = VFD_adj_N,
+  p_prob = VFD_adj_N/sum(VFD_adj_N)
+)
+SEP$c_prob <- cumsum(SEP$p_prob)
+
+SEP$`0.8` <- applyOR(SEP$p_prob, 0.8)
+SEP$`1` <- applyOR(SEP$p_prob, 1)
+SEP$`1.1` <- applyOR(SEP$p_prob, 1.1)
+SEP$`1.14` <- applyOR(SEP$p_prob, 1.14)
+SEP$`1.2` <- applyOR(SEP$p_prob, 1.2)
+SEP$`1.25` <- applyOR(SEP$p_prob, 1.25)
+SEP$`1.3` <- applyOR(SEP$p_prob, 1.3)
+SEP$`1.5` <- applyOR(SEP$p_prob,1.5)
+```
+
+```{r}
+saveRDS(SEP, file = here("data2", "pdf_outcome.rds"))
+```
+
+
+```{r}
+#| label: load-packages1
+#| include: false
+library(INLA)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(here)
+```
+
+```{r}
+#inla.setOption(num.threads = 8)
+simulate_trial <- function(prob_control, prob_treat,
+                           OR_scenario,
+                           psup = 0.99,
+                           pfuti = 0.9,
+                           ninit = 750,
+                           addn = 250,
+                           maxN = 4000) {
+  # -----------------------------
+  # 1. Treatment assignment (1:1)
+  # -----------------------------
+  treatment <- rep(c(0, 1), length.out = maxN)
+  # ---------------------------------------
+  # 2. Generate patient outcomes by arm
+  # ---------------------------------------
+  #I want all patients in the control arm to be assigned OR = 1 when determining
+  #their patientVFDs (i.e., SEP$1) and all patients in the fludrocortisone arm
+  #to be assigned OR = 1.3 when determining their patientVFDs (i.e., SEP$1.3)
+  #Treatment must be assigned first. Outcomes must be generated conditional on treatment.
+  #Each treatment arm has a different probability vector. Probs change depending on which treatment arm patient is in.
+
+  patientVFDs <- numeric(maxN)
+  # Control arm outcomes
+  idx_control <- which(treatment == 0)
+  patientVFDs[idx_control] <-
+    sample(1:10, size = length(idx_control),
+           replace = TRUE, prob = prob_control)
+  # Fludrocortisone arm outcomes
+  idx_treat <- which(treatment == 1)
+  patientVFDs[idx_treat] <-
+    sample(1:10, size = length(idx_treat),
+           replace = TRUE, prob = prob_treat)
+  # -----------------------------
+  # 3. Start adaptive trial
+  # -----------------------------
+  recruited <- ninit
+  while (TRUE) {
+    df <- data.frame(
+      y   = patientVFDs[1:recruited],
+      trt = factor(treatment[1:recruited], levels = c(0, 1))
+    )
+    fit <- inla(
+      y ~ trt,
+      family = "pom",
+      data = df,
+      control.compute = list(config = TRUE)
+    )
+    #plot(fit$marginals.fixed$trt1)
+    p_superior <- 1 - inla.pmarginal(0, fit$marginals.fixed$trt1)
+    #1 - inla.pmarginal gives upper tail probability (right tail)
+    p_futile <- inla.pmarginal(log(1.14), fit$marginals.fixed$trt1)
+    #inla.pmarginal gives lower tail probability.
+    if (p_superior >= psup) {
+      return(list(result = "Superiority",
+                  n = recruited,
+                  OR = OR_scenario))
+    }
+    if (p_futile >= pfuti) {
+      return(list(result = "Futility",
+                  n = recruited,
+                  OR = OR_scenario))
+    }
+    recruited <- recruited + addn
+    if (recruited >= maxN) {
+      return(list(result = "Max N reached",
+                  n = maxN,
+                  OR = OR_scenario))
+    }
+  }
+}
+```
+
+
+Null (Type I error)
+```{r}
+set.seed(456)
+start.time <- Sys.time()
+results_OR1 <- replicate(
+  1000,
+  simulate_trial(
+    prob_control = SEP$`1`,
+    prob_treat   = SEP$`1`,   # same distribution
+    OR_scenario  = 1
+  ),
+  simplify = FALSE
+)
+end.time <- Sys.time()
+end.time - start.time
+```
+Time difference of 3.76912 hours
+```{r}
+saveRDS(results_OR1, file = here("data2", "results_OR1_1000.rds"))
+```
+
+
+```{r}
+set.seed(456)
+start.time <- Sys.time()
+results_OR12 <- replicate(
+  1000,
+  simulate_trial(
+    prob_control = SEP$`1`,
+    prob_treat   = SEP$`1.2`,
+    OR_scenario  = 1.2
+  ),
+  simplify = FALSE
+)
+end.time <- Sys.time()
+end.time - start.time
+```
+Time difference of 5.289746 hours
+```{r}
+saveRDS(results_OR12, file = here("data2", "results_OR12_1000.rds"))
+```
+
+
+```{r}
+set.seed(456)
+start.time <- Sys.time()
+results_OR11 <- replicate(
+  1000,
+  simulate_trial(
+    prob_control = SEP$`1`,
+    prob_treat   = SEP$`1.1`,
+    OR_scenario  = 1.1
+  ),
+  simplify = FALSE
+)
+end.time <- Sys.time()
+end.time - start.time
+```
+Time difference of 6.744341 hours
+```{r}
+saveRDS(results_OR11, file = here("data2", "results_OR11_1000.rds"))
+```
+
+
+```{r}
+set.seed(456)
+start.time <- Sys.time()
+results_OR13 <- replicate(
+  1000,
+  simulate_trial(
+    prob_control = SEP$`1`,
+    prob_treat   = SEP$`1.3`,
+    OR_scenario  = 1.3
+  ),
+  simplify = FALSE
+)
+end.time <- Sys.time()
+end.time - start.time
+```
+Time difference of 3.082237 hours
+```{r}
+saveRDS(results_OR13, file = here("data2", "results_OR13_1000.rds"))
+```
+
+
+```{r}
+set.seed(456)
+start.time <- Sys.time()
+results_OR114 <- replicate(
+  1000,
+  simulate_trial(
+    prob_control = SEP$`1`,
+    prob_treat   = SEP$`1.14`,
+    OR_scenario  = 1.14
+  ),
+  simplify = FALSE
+)
+end.time <- Sys.time()
+end.time - start.time
+```
+Time difference of 6.751097 hours
+```{r}
+saveRDS(results_OR114, file = here("data2", "results_OR114_1000.rds"))
+```
+
+
+```{r}
+results <- bind_rows(
+  bind_rows(results_OR1),
+  bind_rows(results_OR11),
+  bind_rows(results_OR114),
+  bind_rows(results_OR12),
+  bind_rows(results_OR13)
+)
+```
+
+
+```{r}
+# Compute Type I Error, Power, Average Sample Size
+
+summary_results <- results %>%
+  group_by(OR) %>%
+  summarise(
+    n_trials = n(),
+    superiority_count = sum(result == "Superiority"),
+    typeI_or_power = superiority_count / n_trials,
+    avg_sample_size = mean(n)
+  )
+
+summary_results
+```
+
+```{r}
+saveRDS(results, file = here("data2", "results_1000.rds"))
+write.csv(summary_results, here("data2", "summary_results_1000.csv"), row.names = FALSE)
+```
+
+
+```{r}
+results_OR1 <- readRDS(here("data2", "results_OR1_1000.rds"))
+results_OR11 <- readRDS(here("data2", "results_OR11_1000.rds"))
+results_OR114 <- readRDS(here("data2", "results_OR114_1000.rds"))
+results_OR12 <- readRDS(here("data2", "results_OR12_1000.rds"))
+results_OR13 <- readRDS(here("data2", "results_OR13_1000.rds"))
+results <- readRDS(here("data2", "results_1000.rds"))
+summary_results <- read.csv(here("data2", "summary_results_1000.csv"))
+```

@@ -1,0 +1,596 @@
+---
+title: "Simulation Report for Fludrocortisone in Sepsis - The AFFIRM Trial"
+author: "Felix Ho"
+date: "2026-02-11"
+format: pdf
+embed-resources: true
+---
+
+## Introduction to the Trial
+
+The AFFIRM trial is an adaptive randomized controlled trial (RCT) that is designed to determine whether fludrocortisone plus standard of care is superior to standard of care in patients with sepsis in the intensive care unit in the Platform of Randomized Adaptive Clinical Trials in Critical Illness (PRACTICAL) RCT. The adaptive nature of the AFFIRM trial involves repeated data analyses to determine whether criteria for a trial conclusion have been met. Trial conclusions will be made when there is "conclusive" evidence of superiority or futility of fludrocotisone plus standard of care compared with standard of care, as defined below. More details on the trial design are presented in the Adaptive Design section.
+
+
+## Primary Endpoint
+
+The primary outcome is organ support-free days (OSFDs) to day 28, a 30-level ordinal categorical outcome. Patients who die in hospital before day 90 will be assigned an OSFDs value of -1. Patients who are discharged from hospital before day 90 or remain alive and in hospital at day 90 will be considered as survivors. Survivors who spend >28 days on respiratory and/or cardiovascular support will be assigned an OSFDs value of 0. All other outcomes between 1 and 28 will be computed as the number of days alive and free of respiratory and/or cardiovascular support in survivors who are liberated before day 28 after randomization. OSFDs capture the effect of the intervention in terms of effect on survival and on time to liberation from respiratory and/or cardiovascular support.
+
+
+## Primary Analysis
+
+The primary analysis of the ordered categorical endpoint is a Bayesian proportional odds logistic regression, which estimates the effect of fludrocortisone plus standard of care on OSFDs as an odds ratio $OR$. In this model, an $OR > 1$ signifies benefit as fludrocortisone plus standard of care results in higher values for OSFDs, i.e., the number of patients with an outcome of $-1$ reduces and patients are likely to experience fewer days on respiratory and/or cardiovascular support. Conversely, $OR < 1$ indicates harm as fludrocortisone plus standard of care reduces OSFDs. 
+
+To define the proportional odds model, let $\pi_j^i = P(Y \leq j)$ be the probability that the OSFDs are less than or equal to $j$, $j = -1,\ldots 27$ for patient $i$, where $\pi_{28}^i = 1$ for all patients. Let $T_i$ be a treatment indicator, such that $T_i = 0$ if patient $i$ is randomised to standard of care and $T_i = 1$ if patient $i$ is randomised to fludrocortisone plus standard of care. Based on this, the outcome is modelled as: 
+
+$$\log\left(\frac{\pi^i_j}{1 - \pi^i_j}\right) = \alpha_{j} - \beta_t T_i,$$ 
+
+where $j = -1,\ldots, 28$ and $\beta_t$ is the log odds ratio for patients receiving fludrocortisone plus standard of care compared with standard of care. 
+
+The simulations in this report were undertaken using the integrated nested Laplace approximation (INLA) method (Rue \textit{et al.}, 2017), an algorithm for efficient approximate Bayesian analysis. We used INLA to efficiently determine the posterior distribution of the proportional $OR$ and reduce the computational complexity of the trial simulations. 
+
+However, the INLA algorithm, implemented through the \texttt{R-INLA} package, is only able to fit ordinal outcomes for up to 10 categories. Therefore, the 30-level OSFDs were re-categorized to a 10-level ordinal categorical outcome. Theoretically, the proportional odds ratio does not change if we move, combine or delete categories (Strömberg, U., 1996). Thus, we were able to reduce the number of categories and take advantage of the computational efficiency of the INLA algorithm without invalidating the simulation results.
+
+
+## Adaptive Design
+
+This trial design is adaptive and includes a sequence of frequent interim analyses after enrolling 250 additional subjects. At each interim analysis, the primary statistical model will be updated to determine whether the trial has reached a conclusion for patients. The sample size is not fixed for this Bayesian adaptive RCT and will continue until a conclusion is reached based on the following two statistical triggers:
+
+\begin{itemize}
+\item The trial could stop for \textbf{superiority} of fludrocortisone plus standard of care compared with standard of care if the probability that the odds ratio of fludrocortisone plus standard of care compared with standard of care is greater than 1 is higher than some threshold $0.99$, i.e., superiority will be declared if $ P(exp(\beta_t) > 1) \geq 0.99$.
+\item The trial could stop for \textbf{futility} of fludrocortisone plus standard of care compared with standard of care if the probability that fludrocortisone plus standard of care provides a less than 14\% improvement compared with standard of care, as measured by the odds ratio of 1.14, is greater than $0.9$, i.e., futility will be declared if $ P(exp(\beta_t) < 1.14) \geq 0.9$.
+\end{itemize}
+
+In the simulations below, the trial continued until both groups reached a conclusion or until the maximum sample size was reached. For the trial simulations, we were focused on the operating characteristics of the primary efficacy analysis.
+
+
+## Clinical Trial Simulations
+
+This section describes the simulations that were undertaken to understand the error rates and the power for the primary analyses given the specified trial design and adaptive stopping rules. Table 1 shows the distribution of ten ordinal outcome categories that was assumed for standard of care. The baseline probabilities for each OSFDs category are summarized in Table 1. These baseline probabilities were estimated by generating a log-normal distribution of days on vasopressors, flipping the distribution by subtracting it from 28 to get a distribution of vasopressor-free days, and adding extra negative ones (patients who die in hospital before day 90 will be assigned an OSFDs value of -1). Vasopressor-free days were used to estimate OSFDs (e.g., 22.5 vasopressor-free days were assumed to be equivalent to 22.5 OSFDs).
+
+The mean of the log-normal distribution of days on vasopressors was estimated from a target trial emulation of adult patients hospitalized with septic shock and receiving norepinephrine who began hydrocortisone treatment (Bosch \textit{et al.}, 2023). Based on Table 3 of the target trial emulation (the percentage of participants who died in hospital was 42.7%, the mean vasopressor-free days was 12.9, and participants who died in the hospital were assigned 0 "free days"), the mean vasopressor-free days of survivors was estimated to be 22.5. 
+
+$$0.427(0) + (1 - 0.427)\bar{x} = 12.9$$
+$$\bar{x} = 22.5$$
+Since the number of vasopressor-free days was calculated as 28 minus the number of days of vasopressor therapy, the mean of the log-normal distribution of days on vasopressors was calculated as the difference between 28 and 22.5, which was 5.5. From the target trial emulation, the standard deviation of vasopressor-free days in survivors in the hydrocortisone alone arm was estimated to be 2.6. Thus, the standard deviation of the log-normal distribution of days on vasopressors was estimated to be 2.6.
+
+A meta-analysis found that average 90-day sepsis mortality was 32.2% (95% CI 27.0-37.5%) (Bauer \textit{et al.}, 2020). Since our study population will consist of patients with sepsis, the negative one-inflation probability was estimated to be 32.2%. 
+
+
+```{r}
+#| label: load-packages
+#| include: false
+library(data.table)
+library(dplyr)
+library(here)
+library(colorspace)
+library(boot)
+library(patternplot)
+library(png)
+library(ggplot2)
+```
+
+```{r}
+#| include: false
+collapse_levels <- function(props, k) {
+  even <- 1/k
+  midpoints <- props[1]/2
+  for (i in 2:length(props)) {
+    midpoints <- c(midpoints, props[i]/2 + cumsum(props)[i-1])
+  }
+  even_breaks <- seq(0, 1, length.out=k+2)[2:(k+1)]
+  
+  
+  best_sse <- 1e6
+  best_clusters <- NULL
+  
+  # Run kmeans algorithm 1000 times due to its variability
+  for (i in 1:1000) {
+    (clusters <- kmeans(midpoints, centers=k))
+    
+    # Minimize difference between chunk proportion and 1/k
+    sse <- 0
+    for (j in 1:k) {
+      (even-sum(props[clusters$cluster==j]))^2
+      sse <- sse +(even-sum(props[clusters$cluster==j]))^2
+    }
+    if (sse < best_sse) {
+      best_sse <- sse
+      best_clusters <- clusters$cluster
+    }
+  }
+  
+  # Reorder chunk labels since kmeans randomly assigns centers
+  split_best_clusters<- split(best_clusters, rleid(best_clusters))
+  final_clusters <- NULL
+  for (i in 1:k) {
+    final_clusters <- c(final_clusters, rep(i, length(split_best_clusters[[i]])))
+  }
+  return(final_clusters)
+}
+```
+
+```{r}
+#| include: false
+applyOR <- function(baseline, OR) {
+  cumulative <- cumsum(baseline)
+  odds <- cumulative/(1-cumulative)
+  shifted_odds <- odds * 1/OR
+  shifted_cumulative <- shifted_odds/(1+shifted_odds)
+  shifted_cumulative[length(shifted_cumulative)] <- 
+    ifelse(is.nan(tail(shifted_cumulative,1)), 1, tail(shifted_cumulative,1))
+  shifted_probs <- c(shifted_cumulative[1], diff(shifted_cumulative))
+  return(round(shifted_probs,3))
+}
+```
+
+```{r}
+#| include: false
+set.seed(234)
+
+n <- 10000
+mean_target <- 5.5 #This is the mean of the log-normal distribution.
+sd_target <- 2.6 #This is the SD of the log-normal distribution.
+p_neg1 <- 0.322 #This is the negative one inflation rate (normal mortality rate in our patient population).
+upper_cap <- 28
+
+# Convert mean/SD to log-normal parameters (sdlog and meanlog are on the log scale, they are the parameters of the log of the log-normal distribution; sdlog and meanlog are parameters of a normal distribution)
+sdlog <- sqrt(log(1 + (sd_target^2 / mean_target^2)))
+meanlog <- log(mean_target^2/sqrt(sd_target^2 + mean_target^2))
+
+# Step 1: -1 inflation indicator
+is_neg1 <- runif(n) < p_neg1
+
+# Step 2: create discrete categories of days on vasopressors based on the right skewed or positively skewed log-normal distribution (e.g., if someone is between 0 and 1 day on vasopressor in the log-normal distribution, they will be assigned to 1 day and if someone is between 1 and 2 days on vasopressor in the log-normal distribution, they will be assigned to 2 days)
+x <- ceiling(rlnorm(n, meanlog = meanlog, sdlog = sdlog))
+
+# Step 3: truncate at 28
+x <- pmin(x, upper_cap)
+
+# Step 4: flip the distribution so that the x-axis is vasopressor-free days (this new distribution will be left skewed or negatively skewed). The reason why we start by creating a log-normal distribution for days on vasopressors is because we want that distribution to be right skewed or positively skewed. That makes sense clinically because most patients do not spend a lot of days on vasopressors. After creating that distribution, we flip it by subtracting it from 28 to get the distribution for vasopressor-free days. Now we have quite a few people who have a lot of vasopressor-free days, which makes sense clinically.
+x <- 28 - x
+
+# Step 5: apply -1 inflation (this step is the last, otherwise the -1 bar on the histogram will be flipped to the 29 bar when evaluating 28 - x)
+x[is_neg1] <- -1
+```
+
+```{r}
+#| include: false
+k <- 10 # INLA accepts 10 levels only
+VFDs <- c('-1'=3221, '0'=1, '2'=1, '3'=2, '5'=1, '6'=2, '8'=1,
+          '9'=8, '10'=14,'11'=10, '12'=10, '13'=25, '14'=41, '15'=62,	'16'=92,
+          '17'=132, '18'=236, '19'=342, '20'=563, '21'=746, '22'=1094, '23'=1299,	'24'=1215,
+          '25'=748, '26'=133, '27'=1)
+VFD_props <- VFDs/sum(VFDs)
+VFD_adj_levels <- collapse_levels(VFD_props, k)
+
+VFD_adj_N <- NULL
+for (i in 1:k) {
+  VFD_adj_N <- c(VFD_adj_N, sum(VFDs[VFD_adj_levels==i]))
+}
+
+SEP <- data.frame(
+  VFDs = 1:10,
+  N = VFD_adj_N,
+  p_prob = VFD_adj_N/sum(VFD_adj_N)
+)
+SEP$c_prob <- cumsum(SEP$p_prob)
+
+SEP$`0.8` <- applyOR(SEP$p_prob, 0.8)
+SEP$`1` <- applyOR(SEP$p_prob, 1)
+SEP$`1.1` <- applyOR(SEP$p_prob, 1.1)
+SEP$`1.14` <- applyOR(SEP$p_prob, 1.14)
+SEP$`1.2` <- applyOR(SEP$p_prob, 1.2)
+SEP$`1.25` <- applyOR(SEP$p_prob, 1.25)
+SEP$`1.3` <- applyOR(SEP$p_prob, 1.3)
+SEP$`1.5` <- applyOR(SEP$p_prob,1.5)
+```
+
+```{r}
+#| echo: false
+Actual_VFDs <- c("-1", "0-16", "17-19", "20", "21", "22", "23", "24", "25", "26-27")
+
+VFDs <- SEP[,"VFDs"]
+No_patients <- SEP[,"N"]
+knitr::kable(cbind(`Actual OSFDs`= Actual_VFDs, `OSFDs Categories` = VFDs,  
+                   `Number of patients` = No_patients,
+                   `Baseline Probability` = SEP[,"p_prob"]),
+             caption = "The assumed baseline probabilities for each organ support-free days (OSFDs) category.")
+```
+
+
+Based on these baseline probabilities, we simulated five scenarios by changing the assumed treatment effect for the odds ratio of fludrocortisone plus standard of care compared with standard of care. These scenarios were $OR = 1$, which is the null scenario and $OR = 1.1, 1.14, 1.2, 1.3$, representing varying degrees of benefit. Table 2 provides the mortality rates that were assumed based on these varying values for the treatment effect.
+
+```{r}
+#| echo: false
+Odds_Ratio <- c("1.0", "1.1", "1.14", "1.2", "1.3")
+
+Prob_Death <- c("0.322","0.302", "0.294", "0.284", "0.268")
+knitr::kable(cbind(`Odds Ratio` = Odds_Ratio,
+                   `Probability of Death` = Prob_Death),
+             caption = "The probability of death for participants for the assumed values of the odds ratio that were used in the simulations.")
+```
+
+For each odds ratio, we simulated 1000 trials. We assumed that each interim analysis would take place after 250 subjects were recruited. In other words, the total recruitment between each interim analysis was 250 subjects. To avoid the risk of making conclusions based on large variations based on a small sample size, we simulated an initial "burn-in" sample size of 750 participants. This means that the statistical triggers for superiority and futility were not evaluated until 750 subjects had been recruited. If no conclusion was reached, the trial was stopped at the interim analysis after the sample size exceeded 4000 patients as this was the maximum feasible recruitment. 
+
+
+## Simulation Results
+
+The simulation results are summarized in Table 3, which presents the probabilities of concluding superiority, futility or of not meeting a statistical trigger across all the simulated trials. These simulations suggest that with a maximum sample size of 4000 patients, the risk of incorrectly concluding superiority under the null scenario (Type I error) is 5\% at any time during enrolment. There is at least 80\% power to conclude superiority of the fludrocortisone plus standard of care strategy when the treatment effect is equal to or greater than an odds ratio of 1.2.
+
+As the odds ratios increase, the proportion of trials that conclude superiority increases and the proportion of trials that conclude futility decreases. The average trial sample size is at most 2169 for an odds ratio of 1.1. The 80th percentile for sample size is 2750 for an odds ratio of 1.2; there is an 80% chance that the trial will finish before that recruitment level for an odds ratio of 1.2. 
+
+```{r}
+#| echo: false
+results <- readRDS(here("data2", "results_1000.rds"))
+
+table_results <- results %>%
+  group_by(OR) %>%
+  summarise(
+    n_trials = n(),
+    prob_superior = sum(result == "Superiority")/n_trials,
+    prob_futility = sum(result == "Futility")/n_trials,
+    prob_notrigger = sum(result == "Max N reached")/n_trials,
+    avg_sample_size = ceiling(mean(n)),
+    p50 = as.numeric(quantile(n, 0.5)),
+    p80 = as.numeric(quantile(n, 0.8)),
+    .groups = "drop"
+  )
+
+knitr::kable(
+  table_results %>% 
+    select(-n_trials) %>% 
+    rename(`Odds Ratio`= OR, 
+           `Probability fludrocortisone plus standard of care is superior` = prob_superior, 
+           `Probability fludrocortisone plus standard of care is futile` = prob_futility, 
+           `Probability of no adaptive trigger` = prob_notrigger, 
+           `Average sample size` = avg_sample_size, 
+           `50th Percentile for sample size` = p50, 
+           `80th Percentile for sample size` = p80
+           ), 
+  caption = "Probability of achieving the statistical trigger of superiority and futility, the average sample size, and the 50th and 80th percentiles for the sample size."
+  )
+
+```
+
+
+## References
+
+Rue, H., Riebler, A., Sørbye, S.H., Illian, J.B., Simpson, D.P. and Lindgren, F.K., 2017. *Bayesian computing with INLA: a review.* Annual Review of Statistics and Its Application, 4, pp.395-421.
+
+Strömberg, U., 1996. *Collapsing ordered outcome categories: a note of concern.* American Journal of Epidemiology, 144(4), pp.421-424.
+
+Bosch, N.A., Teja, B., Law, A.C., Pang, B., Reza Jafarzadeh, S. and Walkey, A.J., 2023. *Comparative effectiveness of fludrocortisone and hydrocortisone vs hydrocortisone alone among patients with septic shock.* JAMA Internal Medicine, 183(5), pp. 451-459.
+
+Bauer, M., Gerlach, H., Vogelmann, T., Preissing, F., Stiefel, J. and Adam, D., 2020. *Mortality in sepsis and septic shock in Europe, North America and Australia between 2009 and 2019— results from a systematic review and meta-analysis.* Critical Care, 24(1), 239. 
+
+REMAP-CAP Investigators and Angus, D.C., 2025. *Effect of hydrocortisone on mortality in patients with severe community-acquired pneumonia : The REMAP-CAP Corticosteroid Domain Randomized Clinical Trial.* Intensive care medicine, 51(4), pp. 665–680.
+
+Heyland, D.K., Muscedere, J., Drover, J., Jiang, X., Day, A.G. and Canadian Critical Care Trials Group, 2011. *Persistent organ dysfunction plus death: a novel, composite outcome measure for critical care trials.* Critical Care, 15(2), R98.
+
+
+## Simulation Code
+
+The \texttt{R} code used to undertake the simulations for this trial is provided below for the interested reader. The simulations employ the computationally efficient integrated nested Laplace approximation algorithm, implemented through the \texttt{R-INLA} package. 
+
+```{r}
+#| eval: false
+library(data.table)
+library(here)
+
+
+collapse_levels <- function(props, k) {
+  even <- 1/k
+  midpoints <- props[1]/2
+  for (i in 2:length(props)) {
+    midpoints <- c(midpoints, props[i]/2 + cumsum(props)[i-1])
+  }
+  even_breaks <- seq(0, 1, length.out=k+2)[2:(k+1)]
+  
+  
+  best_sse <- 1e6
+  best_clusters <- NULL
+  
+  # Run kmeans algorithm 1000 times due to its variability
+  for (i in 1:1000) {
+    (clusters <- kmeans(midpoints, centers=k))
+    
+    # Minimize difference between chunk proportion and 1/k
+    sse <- 0
+    for (j in 1:k) {
+      (even-sum(props[clusters$cluster==j]))^2
+      sse <- sse +(even-sum(props[clusters$cluster==j]))^2
+    }
+    if (sse < best_sse) {
+      best_sse <- sse
+      best_clusters <- clusters$cluster
+    }
+  }
+  
+  # Reorder chunk labels since kmeans randomly assigns centers
+  split_best_clusters<- split(best_clusters, rleid(best_clusters))
+  final_clusters <- NULL
+  for (i in 1:k) {
+    final_clusters <- c(final_clusters, rep(i, length(split_best_clusters[[i]])))
+  }
+  return(final_clusters)
+}
+
+
+applyOR <- function(baseline, OR) {
+  cumulative <- cumsum(baseline)
+  odds <- cumulative/(1-cumulative)
+  shifted_odds <- odds * 1/OR
+  shifted_cumulative <- shifted_odds/(1+shifted_odds)
+  shifted_cumulative[length(shifted_cumulative)] <- 
+    ifelse(is.nan(tail(shifted_cumulative,1)), 1, tail(shifted_cumulative,1))
+  shifted_probs <- c(shifted_cumulative[1], diff(shifted_cumulative))
+  return(round(shifted_probs,3))
+}
+
+
+set.seed(234)
+
+n <- 10000
+mean_target <- 5.5 #This is the mean of the log-normal distribution.
+sd_target <- 2.6 #This is the SD of the log-normal distribution.
+p_neg1 <- 0.322 
+#This is the negative one inflation rate (normal mortality rate in our patient
+#population).
+upper_cap <- 28
+
+# Convert mean/SD to log-normal parameters (sdlog and meanlog are on the log
+# scale, they are the parameters of the log of the log-normal distribution;
+# sdlog and meanlog are parameters of a normal distribution)
+sdlog <- sqrt(log(1 + (sd_target^2 / mean_target^2)))
+meanlog <- log(mean_target^2/sqrt(sd_target^2 + mean_target^2))
+
+# Step 1: -1 inflation indicator
+is_neg1 <- runif(n) < p_neg1
+
+# Step 2: create discrete categories of days on vasopressors based on the right
+# skewed or positively skewed log-normal distribution (e.g., if someone is
+# between 0 and 1 day on vasopressor in the log-normal distribution, they will
+# be assigned to 1 day and if someone is between 1 and 2 days on vasopressor in
+# the log-normal distribution, they will be assigned to 2 days)
+x <- ceiling(rlnorm(n, meanlog = meanlog, sdlog = sdlog))
+
+# Step 3: truncate at 28
+x <- pmin(x, upper_cap)
+
+# Step 4: flip the distribution so that the x-axis is vasopressor-free days
+# (this new distribution will be left skewed or negatively skewed). The reason
+# why we start by creating a log-normal distribution for days on vasopressors is
+# because we want that distribution to be right skewed or positively skewed.
+# That makes sense clinically because most patients do not spend a lot of days
+# on vasopressors. After creating that distribution, we flip it by subtracting
+# it from 28 to get the distribution for vasopressor-free days. Now we have
+# quite a few people who have a lot of vasopressor-free days, which makes sense
+# clinically.
+x <- 28 - x
+
+# Step 5: apply -1 inflation (this step is the last, otherwise the -1 bar on the
+# histogram will be flipped to the 29 bar when evaluating 28 - x)
+x[is_neg1] <- -1
+
+hist(x, breaks = 30)
+
+
+table(x)
+
+
+k <- 10 # INLA accepts 10 levels only
+VFDs <- c('-1'=3221, '0'=1, '2'=1, '3'=2, '5'=1, '6'=2, '8'=1,
+          '9'=8, '10'=14,'11'=10, '12'=10, '13'=25, '14'=41, '15'=62,	'16'=92,
+          '17'=132, '18'=236, '19'=342, '20'=563, '21'=746, '22'=1094, '23'=1299,	
+          '24'=1215, '25'=748, '26'=133, '27'=1)
+VFD_props <- VFDs/sum(VFDs)
+VFD_adj_levels <- collapse_levels(VFD_props, k)
+
+VFD_adj_N <- NULL
+for (i in 1:k) {
+  VFD_adj_N <- c(VFD_adj_N, sum(VFDs[VFD_adj_levels==i]))
+}
+
+SEP <- data.frame(
+  VFDs = 1:10,
+  N = VFD_adj_N,
+  p_prob = VFD_adj_N/sum(VFD_adj_N)
+)
+SEP$c_prob <- cumsum(SEP$p_prob)
+
+SEP$`0.8` <- applyOR(SEP$p_prob, 0.8)
+SEP$`1` <- applyOR(SEP$p_prob, 1)
+SEP$`1.1` <- applyOR(SEP$p_prob, 1.1)
+SEP$`1.2` <- applyOR(SEP$p_prob, 1.2)
+SEP$`1.25` <- applyOR(SEP$p_prob, 1.25)
+SEP$`1.3` <- applyOR(SEP$p_prob, 1.3)
+SEP$`1.5` <- applyOR(SEP$p_prob,1.5)
+
+
+saveRDS(SEP, file = here("data3", "pdf_outcome.rds"))
+
+
+library(INLA)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(here)
+
+
+#inla.setOption(num.threads = 8)
+simulate_trial <- function(prob_control, prob_treat,
+                           OR_scenario,
+                           psup = 0.99,
+                           pfuti = 0.9,
+                           ninit = 750,
+                           addn = 250,
+                           maxN = 4000) {
+  # -----------------------------
+  # 1. Treatment assignment (1:1)
+  # -----------------------------
+  treatment <- rep(c(0, 1), length.out = maxN)
+  # ---------------------------------------
+  #2. Generate patient outcomes by arm
+  # ---------------------------------------
+  #I want all patients in the control arm to be assigned OR = 1 when determining
+  #their patientVFDs (i.e., SEP$1) and all patients in the fludrocortisone arm
+  #to be assigned OR = 1.3 when determining their patientVFDs (i.e., SEP$1.3)
+  #Treatment must be assigned first. Outcomes must be generated conditional on
+  #treatment. Each treatment arm has a different probability vector. Probs
+  #change depending on which treatment arm patient is in.
+
+  patientVFDs <- numeric(maxN)
+  # Control arm outcomes
+  idx_control <- which(treatment == 0)
+  patientVFDs[idx_control] <-
+    sample(1:10, size = length(idx_control),
+           replace = TRUE, prob = prob_control)
+  # Fludrocortisone arm outcomes
+  idx_treat <- which(treatment == 1)
+  patientVFDs[idx_treat] <-
+    sample(1:10, size = length(idx_treat),
+           replace = TRUE, prob = prob_treat)
+  # -----------------------------
+  # 3. Start adaptive trial
+  # -----------------------------
+  recruited <- ninit
+  while (TRUE) {
+    df <- data.frame(
+      y   = patientVFDs[1:recruited],
+      trt = factor(treatment[1:recruited], levels = c(0, 1))
+    )
+    fit <- inla(
+      y ~ trt,
+      family = "pom",
+      data = df,
+      control.compute = list(config = TRUE)
+    )
+    #plot(fit$marginals.fixed$trt1)
+    p_superior <- 1 - inla.pmarginal(0, fit$marginals.fixed$trt1)
+    #1 - inla.pmarginal gives upper tail probability (right tail)
+    p_futile <- inla.pmarginal(log(1.14), fit$marginals.fixed$trt1)
+    #inla.pmarginal gives lower tail probability.
+    if (p_superior >= psup) {
+      return(list(result = "Superiority",
+                  n = recruited,
+                  OR = OR_scenario))
+    }
+    if (p_futile >= pfuti) {
+      return(list(result = "Futility",
+                  n = recruited,
+                  OR = OR_scenario))
+    }
+    recruited <- recruited + addn
+    if (recruited >= maxN) {
+      return(list(result = "Max N reached",
+                  n = maxN,
+                  OR = OR_scenario))
+    }
+  }
+}
+
+
+set.seed(456)
+start.time <- Sys.time()
+results_OR1 <- replicate(
+  1000,
+  simulate_trial(
+    prob_control = SEP$`1`,
+    prob_treat   = SEP$`1`,   # same distribution
+    OR_scenario  = 1
+  ),
+  simplify = FALSE
+)
+end.time <- Sys.time()
+end.time - start.time
+
+
+saveRDS(results_OR1, file = here("data3", "results_OR1_1000.rds"))
+
+
+set.seed(456)
+start.time <- Sys.time()
+results_OR12 <- replicate(
+  1000,
+  simulate_trial(
+    prob_control = SEP$`1`,
+    prob_treat   = SEP$`1.2`,
+    OR_scenario  = 1.2
+  ),
+  simplify = FALSE
+)
+end.time <- Sys.time()
+end.time - start.time
+
+
+saveRDS(results_OR12, file = here("data3", "results_OR12_1000.rds"))
+
+
+set.seed(456)
+start.time <- Sys.time()
+results_OR11 <- replicate(
+  1000,
+  simulate_trial(
+    prob_control = SEP$`1`,
+    prob_treat   = SEP$`1.1`,
+    OR_scenario  = 1.1
+  ),
+  simplify = FALSE
+)
+end.time <- Sys.time()
+end.time - start.time
+
+
+saveRDS(results_OR11, file = here("data3", "results_OR11_1000.rds"))
+
+
+set.seed(456)
+start.time <- Sys.time()
+results_OR13 <- replicate(
+  1000,
+  simulate_trial(
+    prob_control = SEP$`1`,
+    prob_treat   = SEP$`1.3`,
+    OR_scenario  = 1.3
+  ),
+  simplify = FALSE
+)
+end.time <- Sys.time()
+end.time - start.time
+
+
+saveRDS(results_OR13, file = here("data3", "results_OR13_1000.rds"))
+
+
+results <- bind_rows(
+  bind_rows(results_OR1),
+  bind_rows(results_OR12),
+  bind_rows(results_OR11),
+  bind_rows(results_OR13)
+)
+
+
+# Compute Type I Error, Power, Average Sample Size
+
+summary_results <- results %>%
+  group_by(OR) %>%
+  summarise(
+    n_trials = n(),
+    superiority_count = sum(result == "Superiority"),
+    typeI_or_power = superiority_count / n_trials,
+    avg_sample_size = mean(n)
+  )
+
+summary_results
+
+
+saveRDS(results, file = here("data3", "results_1000.rds"))
+write.csv(summary_results, here("data3", "summary_results_1000.csv"), 
+          row.names = FALSE)
+
+
+results_OR1 <- readRDS(here("data3", "results_OR1_1000.rds"))
+results_OR12 <- readRDS(here("data3", "results_OR12_1000.rds"))
+results <- readRDS(here("data3", "results_1000.rds"))
+summary_results <- read.csv(here("data3", "summary_results_1000.csv"))
+```
